@@ -2,8 +2,10 @@ module Main where
 
 -- ghc lib dependencies
 import qualified GHC
-import GHC (Ghc, DynFlags, getSessionDynFlags)
+import GHC (Ghc, GhcPs, DynFlags, getSessionDynFlags,
+            guessTarget, setTargets)
 import ErrUtils (Messages)
+import HsSyn (HsModule)
 import StringBuffer
 import Lexer
 import Parser
@@ -16,17 +18,6 @@ import System.FilePath.Posix (takeFileName)
 import Control.Monad.IO.Class
 import Options.Applicative
 import Data.Maybe (fromMaybe)
-
--- 1. M.hs          -> Parse -> HsSyn RdrName
--- 2. HsSyn RdrName -> Rename -> HsSyn Name
--- 3. HsSyn Name    -> Typecheck -> HsSyn Id
--- 4. HsSyn Id      -> Desugar -> CoreExpr
--- 5. CoreExpr      -> Simplify[N] -> CoreExpr
--- 6. CoreExpr      -> CoreTidy -> CoreExpr
--- 7. CoreExpr      -> CorePrep -> CoreExpr
--- 8. CoreExpr      -> To STG -> STG
--- 9. STG           -> Codegen -> Cmm
--- 10. Cmm          -> Machine Code -> M.s
 
 data Args = Args {
         modPath :: FilePath
@@ -41,7 +32,11 @@ readArgs = execParser pInfo
         pInfo = info (argParser <**> helper) fullDesc
 
 runGhc :: Ghc a -> IO a
-runGhc = GHC.runGhc (Just Paths.libdir)
+runGhc doGhc = GHC.runGhc (Just Paths.libdir) $ do
+    args <- liftIO readArgs
+    target <- guessTarget (modPath args) Nothing
+    setTargets [target]
+    doGhc
 
 parse :: DynFlags -> (Maybe FilePath) -> StringBuffer -> P a -> ParseResult a
 parse flags mFn strbuf parser = unP parser parseState
@@ -58,6 +53,22 @@ parseEither dflags mFn strbuf parser = handleResult $ parse dflags mFn strbuf pa
             PFailed errFn _ _ -> Left $ errFn dflags
             POk _ a -> Right a
 
+doParse :: DynFlags -> Args -> Ghc (Maybe (Located (HsModule GhcPs)))
+doParse dflags args = do
+    -- read the module contents and parse it, printing any errors or warnings
+    let modP = modPath args
+        modFn = takeFileName modP
+    inBuffer <- liftIO $ hGetStringBuffer modP
+
+    case parseEither dflags (pure modFn) inBuffer parseModule of
+        Left (warns, errs) -> do
+            liftIO $ mapM_ print warns
+            liftIO $ mapM_ print errs
+            pure Nothing
+        Right parsedMod -> do
+            liftIO $ putStrLn "parsing succeeded"
+            pure (Just parsedMod)
+
 main :: IO ()
 main = do
     args <- readArgs
@@ -66,28 +77,9 @@ main = do
         -- get the dynamic flags for this session
         dflags <- getSessionDynFlags
 
-        -- read the module contents and parse it, printing any errors or warnings
-        let modP = modPath args
-            modFn = takeFileName modP
-        inBuffer <- liftIO $ hGetStringBuffer modP
-        case parseEither dflags (pure modFn) inBuffer parseModule of
-            Left (warns, errs) -> do
-                liftIO $ mapM_ print warns
-                liftIO $ mapM_ print errs
-            Right parsedMod -> pure ()
+        -- parse the module
+        -- _ <- doParse dflags args
 
-{-
-ghc --show-options
-
-HscMain
-
-After parse
--ddump-parsed
--ddump-parsed-ast
--dsource-stats
-
-
--}
-
+        pure ()
 
 
