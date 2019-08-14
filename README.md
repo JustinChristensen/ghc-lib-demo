@@ -1,5 +1,6 @@
 # GHC Compiler Pipeline Demonstration
 
+```
 -- The pipeline, according to the wiki
 -- 1. M.hs          -> Parse -> HsSyn RdrName
 -- 2. HsSyn RdrName -> Rename -> HsSyn Name
@@ -11,6 +12,7 @@
 -- 8. CoreExpr      -> To STG -> STG
 -- 9. STG           -> Codegen -> Cmm
 -- 10. Cmm          -> Machine Code -> M.s
+```
 
 In reality, #2 and #3 are tightly coupled, see:
 https://gitlab.haskell.org/ghc/ghc/blob/master/compiler/typecheck/TcRnTypes.hs#L254
