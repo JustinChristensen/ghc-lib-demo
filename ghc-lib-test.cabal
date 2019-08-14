@@ -1,0 +1,20 @@
+cabal-version:       2.4
+
+name:                ghc-lib-test
+version:             0.0.1
+license:             MIT
+license-file:        LICENSE
+author:              Justin Christensen
+maintainer:          justin@promise.io
+extra-source-files:  *.md
+
+executable ghc-lib-test
+  main-is:             Main.hs
+  ghc-options:         
+    -Wall
+  build-depends:       
+      base ^>=4.12.0.0
+    , ghc
+    , ghc-paths
+    , mtl
+  default-language:    Haskell2010
