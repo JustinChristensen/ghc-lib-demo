@@ -1,11 +1,38 @@
-PROG := ghc-comp-test
+COMP_TEST := ghc-lib-test
+LIBS_TEST := libs-test
+CABAL := cabal
+CABAL_BUILD := $(CABAL) v2-build
+CABAL_FLAGS := -O0
+GHC_FLAGS :=
+
+ifeq ($(origin DUMP_TO_FILE), environment)
+GHC_FLAGS += -ddump-to-file
+endif
 
 .PHONY: all
-all: $(PROG)
+all: $(COMP_TEST) $(LIBS_TEST)
 
-.PHONY: $(PROG)
-$(PROG):
-	cabal v2-build
+.PHONY: $(COMP_TEST)
+$(COMP_TEST):
+	$(CABAL_BUILD) $(CABAL_FLAGS) --ghc-options='$(GHC_FLAGS)' $@
+
+.PHONY: $(LIBS_TEST)
+$(LIBS_TEST):
+	$(CABAL_BUILD) $(CABAL_FLAGS) --ghc-options='$(GHC_FLAGS)' $@
+
+.PHONY: dump_parse
+DUMP_PARSE_FLAGS := -ddump-parsed -ddump-parsed-ast -dsource-stats
+dump_parse: GHC_FLAGS += $(DUMP_PARSE_FLAGS)
+dump_parse: $(COMP_TEST)
+
+.PHONY: dump_rename
+DUMP_RENAME_FLAGS := -ddump-rn -ddump-rn-ast -ddump-rn-stats -ddump-rn-trace
+dump_rename: GHC_FLAGS += $(DUMP_RENAME_FLAGS)
+dump_rename: $(COMP_TEST)
+
+.PHONY: dump_parse_rename
+dump_parse_rename: GHC_FLAGS += $(DUMP_PARSE_FLAGS) $(DUMP_RENAME_FLAGS)
+dump_parse_rename: $(COMP_TEST)
 
 .PHONY: clean
 clean:
