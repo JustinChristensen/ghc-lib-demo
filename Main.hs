@@ -1,39 +1,21 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Data.Text (Text)
-import qualified Data.Text.IO as I (putStrLn)
+-- ghc lib dependencies
+import qualified GHC
+import GHC (Ghc, DynFlags, getSessionDynFlags)
+import ErrUtils (Messages)
+import StringBuffer
+import Lexer
+import Parser
+import SrcLoc
+import FastString
 
--- import GHC
--- import GHC.Paths as Paths
--- import Lexer
--- import SrcLoc
--- import FastString
--- import Parser
--- import HsDumpAst
--- import StringBuffer
--- import Outputable
--- import ErrUtils (Messages)
--- import Control.Monad.IO.Class
---
--- runParser :: DynFlags -> String -> P a -> ParseResult a
--- runParser flags str parser = unP parser parseState
---     where
---       filename = "<interactive>"
---       location = mkRealSrcLoc (mkFastString filename) 1 1
---       buffer = stringToStringBuffer str
---       parseState = mkPState flags buffer location
-
--- type LHsExpr p = Located (HsExpr p) 	-- Defined in ‘HsExpr’
--- type GhcPs = GhcPass 'Parsed
--- data Pass = Parsed | Renamed | Typechecked
--- Located (HsExpr (GhcPass 'Parsed))
--- testExpression :: DynFlags -> String -> Either Messages (Located (HsExpr GhcPs))
--- testExpression dflags str =
---     let presult = runParser dflags str parseExpression
---     in case presult of
---         POk _ a -> Right a
---         PFailed errFn _ _ -> Left $ errFn dflags
+-- other dependencies
+import GHC.Paths as Paths
+import System.FilePath.Posix (takeFileName)
+import Control.Monad.IO.Class
+import Options.Applicative
+import Data.Maybe (fromMaybe)
 
 -- 1. M.hs          -> Parse -> HsSyn RdrName
 -- 2. HsSyn RdrName -> Rename -> HsSyn Name
@@ -46,11 +28,53 @@ import qualified Data.Text.IO as I (putStrLn)
 -- 9. STG           -> Codegen -> Cmm
 -- 10. Cmm          -> Machine Code -> M.s
 
--- main :: IO ()
--- main =
---     GHC.runGhc (Just Paths.libdir) $ do
---         dflags <- GHC.getSessionDynFlags
---         pure ()
+data Args = Args {
+        modPath :: FilePath
+    } deriving (Show, Eq)
+
+argParser :: Parser Args
+argParser = Args <$> strArgument mempty
+
+readArgs :: IO Args
+readArgs = execParser pInfo
+    where
+        pInfo = info (argParser <**> helper) fullDesc
+
+runGhc :: Ghc a -> IO a
+runGhc = GHC.runGhc (Just Paths.libdir)
+
+parse :: DynFlags -> (Maybe FilePath) -> StringBuffer -> P a -> ParseResult a
+parse flags mFn strbuf parser = unP parser parseState
+    where
+        (linenum, colnum) = (1, 1)
+        filename = fromMaybe "<interactive>" mFn
+        location = mkRealSrcLoc (mkFastString filename) linenum colnum
+        parseState = mkPState flags strbuf location
+
+parseEither :: DynFlags -> (Maybe FilePath) -> StringBuffer -> P a -> Either Messages a
+parseEither dflags mFn strbuf parser = handleResult $ parse dflags mFn strbuf parser
+    where
+        handleResult result = case result of
+            PFailed errFn _ _ -> Left $ errFn dflags
+            POk _ a -> Right a
+
+main :: IO ()
+main = do
+    args <- readArgs
+
+    runGhc $ do
+        -- get the dynamic flags for this session
+        dflags <- getSessionDynFlags
+
+        -- read the module contents and parse it, printing any errors or warnings
+        let modP = modPath args
+            modFn = takeFileName modP
+        inBuffer <- liftIO $ hGetStringBuffer modP
+        case parseEither dflags (pure modFn) inBuffer parseModule of
+            Left (warns, errs) -> do
+                liftIO $ mapM_ print warns
+                liftIO $ mapM_ print errs
+            Right parsedMod -> pure ()
 
 {-
 ghc --show-options
@@ -65,7 +89,5 @@ After parse
 
 -}
 
-main :: IO ()
-main = I.putStrLn ("Hello, World!" :: Text)
 
 
