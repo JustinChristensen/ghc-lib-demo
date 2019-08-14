@@ -31,8 +31,25 @@ https://gitlab.haskell.org/ghc/ghc/tree/ghc-8.6.5-release
 * STG
   https://gitlab.haskell.org/ghc/ghc/blob/ghc-8.6.5-release/compiler/stgSyn/StgSyn.hs#L197
 
+### Objects
+
+* Ghc Monad
+  Main monad for compiling source files. Handles dynamic flags, targets, and a session that 
+  contains a graph of of the modules and their dependencies. See [GhcMonad.hs].
+  
+* Module Graph
+  Created by depanal in [GhcMake.hs] by iterating through the list of targets in the session.
+
+* Module Summary
+  A sort of header for each module that specifies the module name, textual imports, and other data.
+  Stored as part of the module graph.
+
 ### References
 
 1. https://gitlab.haskell.org/ghc/ghc/wikis/commentary/compiler/hsc-main  
 2. http://hackage.haskell.org/package/ghc-8.6.5  
 3. https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/glasgow_exts.html#equality-constraints-coercible-and-the-kind-constraint
+
+
+[GhcMake.hs]: https://gitlab.haskell.org/ghc/ghc/blob/ghc-8.6.5-release/compiler/main/GhcMake.hs#L121
+[GhcMonad.hs]: https://gitlab.haskell.org/ghc/ghc/blob/ghc-8.6.5-release/compiler/main/GhcMonad.hs
