@@ -19,7 +19,9 @@ https://gitlab.haskell.org/ghc/ghc/blob/master/compiler/typecheck/TcRnTypes.hs#L
 
 ## Notes and References
 
-https://gitlab.haskell.org/ghc/ghc/tree/ghc-8.6.5-release
+* https://gitlab.haskell.org/ghc/ghc/tree/ghc-8.6.5-release
+* Typechecker and Renamer Entrypoint:
+  https://gitlab.haskell.org/ghc/ghc/blob/ghc-8.6.5-release/compiler/typecheck/TcRnDriver.hs#L152
 
 ### Compiler Pipeline Types
 
@@ -33,7 +35,7 @@ https://gitlab.haskell.org/ghc/ghc/tree/ghc-8.6.5-release
 * STG
   https://gitlab.haskell.org/ghc/ghc/blob/ghc-8.6.5-release/compiler/stgSyn/StgSyn.hs#L197
 
-### Objects
+### Terminology
 
 * Ghc Monad
   Main monad for compiling source files. Handles dynamic flags, targets, and a session that 
@@ -44,7 +46,35 @@ https://gitlab.haskell.org/ghc/ghc/tree/ghc-8.6.5-release
 
 * Module Summary
   A sort of header for each module that specifies the module name, textual imports, and other data.
-  Stored as part of the module graph.
+  Stored as part of the module graph. Created during make by [summariseModule](https://gitlab.haskell.org/ghc/ghc/blob/ghc-8.6.5-release/compiler/main/GhcMake.hs#L2263).
+
+* Ghc "Make" mode
+  The process of compiling modules to some backend language.
+
+* Downsweep
+  Recursively walking through the import list of the target modules to analyze dependendencies and create
+  a **Module Graph** containing **Module Summaries**
+
+* Upsweep
+  The actual compilation process, walking through the topologically sorted module graph and compiling modules
+  as necessary. The **Home Package Table** is computed as a result of this process. 
+
+* Home Package Table
+
+* The Driver Pipeline
+  Generates intermediate files during compilation through a series of phases. See [Pipeline].
+
+* Compilation Entry Points
+  [`compileOne`](https://gitlab.haskell.org/ghc/ghc/blob/ghc-8.6.5-release/compiler/main/DriverPipeline.hs#L114) is
+  the compilation entry point for GhcMake (called from upsweep_mod). See [Pipeline].
+
+* HSC Main
+  The driver pipeline eventually calls hscIncrementalFrontend to parse, rename, and typecheck the target modules.
+  This module contains hscTypecheck, what takes an optional parsed module, and then walks it through the renaming/typechecking phases.
+  See `hscTypecheck` for the real business in [HscMain.hs]. 
+ 
+* HSC Monad 
+  The inner monad for compiling haskell sources.
 
 ### References
 
@@ -52,6 +82,7 @@ https://gitlab.haskell.org/ghc/ghc/tree/ghc-8.6.5-release
 2. http://hackage.haskell.org/package/ghc-8.6.5  
 3. https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/glasgow_exts.html#equality-constraints-coercible-and-the-kind-constraint
 
-
 [GhcMake.hs]: https://gitlab.haskell.org/ghc/ghc/blob/ghc-8.6.5-release/compiler/main/GhcMake.hs#L121
 [GhcMonad.hs]: https://gitlab.haskell.org/ghc/ghc/blob/ghc-8.6.5-release/compiler/main/GhcMonad.hs
+[Pipeline]: https://gitlab.haskell.org/ghc/ghc/wikis/commentary/pipeline<Paste>
+[HscMain.hs]: https://gitlab.haskell.org/ghc/ghc/blob/ghc-8.6.5-release/compiler/main/HscMain.hs#L414

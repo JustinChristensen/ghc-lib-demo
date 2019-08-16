@@ -12,6 +12,10 @@ endif
 .PHONY: all
 all: $(COMP_TEST) $(LIBS_TEST)
 
+.PHONY: run
+run: $(COMP_TEST)
+	cd foo && ../dist-newstyle/build/x86_64-osx/ghc-8.6.5/ghc-lib-test-0.0.1/x/ghc-lib-test/build/ghc-lib-test/ghc-lib-test -v3 Foo.hs
+
 .PHONY: $(COMP_TEST)
 $(COMP_TEST):
 	$(CABAL_BUILD) $(CABAL_FLAGS) --ghc-options='$(GHC_FLAGS)' $@
@@ -36,4 +40,4 @@ dump_parse_rename: $(COMP_TEST)
 
 .PHONY: clean
 clean:
-	rm -rf dist-newstyle
+	rm -rf dist dist-newstyle
