@@ -14,7 +14,7 @@ all: $(COMP_TEST) $(LIBS_TEST)
 
 .PHONY: run
 run: $(COMP_TEST)
-	cd foo && ../dist-newstyle/build/x86_64-osx/ghc-8.6.5/ghc-lib-test-0.0.1/x/ghc-lib-test/build/ghc-lib-test/ghc-lib-test -v3 Foo.hs
+	cd foo && ../dist-newstyle/build/x86_64-osx/ghc-8.6.5/ghc-lib-test-0.0.1/x/ghc-lib-test/build/ghc-lib-test/ghc-lib-test -v3 -ddump-if-trace Foo.hs
 
 .PHONY: $(COMP_TEST)
 $(COMP_TEST):

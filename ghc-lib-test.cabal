@@ -19,8 +19,8 @@ executable ghc-lib-test
   build-depends:
       ghc
     , ghc-paths
-    , optparse-applicative
     , filepath
+    , containers
     , text
     , mtl
 

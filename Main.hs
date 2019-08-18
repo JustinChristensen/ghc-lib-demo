@@ -7,6 +7,7 @@ import ErrUtils (Messages)
 import HscMain
 import HscTypes
 import TcRnDriver
+import TcRnTypes
 import Outputable hiding ((<>))
 -- import HsSyn (HsModule)
 -- import Lexer
@@ -17,8 +18,15 @@ import Outputable hiding ((<>))
 -- other dependencies
 import GHC.Paths as Paths
 import Data.Functor
+import Data.Graph
+import Control.Monad (forM)
+import Data.Maybe (catMaybes)
+import System.IO (hPutStrLn, stderr)
 import Control.Monad.IO.Class
 import System.Environment (getArgs)
+
+putStrErr :: String -> IO ()
+putStrErr = hPutStrLn stderr
 
 readArgs :: Ghc [String]
 readArgs = do
@@ -44,37 +52,43 @@ put x = do
 
 logErrsAndWarns :: IO (Messages, a) -> IO a
 logErrsAndWarns act = do
-    ((warns, errs), x) <- act
-    liftIO $ mapM_ print warns
-    liftIO $ mapM_ print errs
-    pure x
+        ((warns, errs), x) <- act
+        liftIO $ mapM_ putB warns
+        liftIO $ mapM_ putB errs
+        pure x
+    where
+        b s = "\27[1m" ++ s ++ "\27[0m"
+        putB = putStrLn . b . show
+
+runPL :: SCC ModSummary -> Ghc (Maybe TcGblEnv)
+runPL (CyclicSCC _) = undefined
+runPL (AcyclicSCC ms) = do
+    hscEnv <- getSession
+    parsedMod <- liftIO $ hscParse hscEnv ms
+    liftIO $ logErrsAndWarns $ tcRnModule hscEnv ms True parsedMod
 
 main :: IO ()
-main = do
+main = main' $> ()
+
+main' :: IO [TcGblEnv]
+main' = do
     runGhc $ do
         -- analyze our module dependencies, storing the module graph in the session
         mg <- depanal [] False
 
-        hscEnv <- getSession
+        -- print GHC's idea of what the initial module graph looks like
+        liftIO $ putStrLn "Before sort"
+        printMss (mgModSummaries mg)
 
-        -- print GHC's idea of what the module graph looks like
-        let mss = mgModSummaries mg
-        mapM_ put mss
+        -- topologically sort the module graph
+        let sortedMg = topSortModuleGraph False mg (Just $ mkModuleName "Main")
 
-        -- pluck the first module summary and parse it
-        ms <- firstMS
-        parsedMod <- liftIO $ hscParse hscEnv ms
+        liftIO $ putStrLn "After sort"
+        printMss $ [ms | AcyclicSCC ms <- sortedMg]
 
-        -- rename and typecheck
-        mTcGblEnv <- liftIO $ logErrsAndWarns $ tcRnModule hscEnv ms False parsedMod
+        -- loop through the module summaries and parse/rename/typecheck
+        fmap catMaybes $ forM sortedMg runPL
 
-        case mTcGblEnv of
-            Just _ -> pure ()
-            _ -> liftIO $ putStrLn "No typechecker env returned"
-
-        pure ()
     where
-        firstMS = do
-            mg <- getModuleGraph
-            pure $ head $ mgModSummaries mg
+        printMss = mapM_ put
 
